@@ -1,0 +1,40 @@
+name: GitHub Metrics
+on:
+  schedule: [{ cron: '0 */6 * * *' }] # 6時間おき
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate metrics
+        uses: lowlighter/metrics@latest
+        with:
+          # 基本
+          filename: metrics.svg
+          user: ${{ github.repository_owner }}
+          template: classic
+          base: header, activity, repositories
+          config_timezone: Asia/Tokyo
+          # 習慣（時間帯/曜日の分布）
+          plugin_habits: yes
+          plugin_habits_days: 14
+          plugin_habits_facts: yes
+          plugin_habits_charts: yes
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Inject metrics into README
+        run: |
+          METRICS_HTML='<p align="left"><img src="metrics.svg" alt="metrics" /></p>'
+          awk 'BEGIN{printmode=1} \
+               /<!-- METRICS:START -->/{print; print mode=0?line:ENVIRON["METRICS_HTML"]; skip=1; next} \
+               /<!-- METRICS:END -->/{skip=0} \
+               !skip{print}' README.md > README.tmp && mv README.tmp README.md
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add README.md metrics.svg
+            git commit -m "chore(readme): update metrics"
+            git push
+          fi
