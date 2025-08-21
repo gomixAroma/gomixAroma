@@ -1,5 +1,5 @@
 <div align="center">
-    <samp>Hi! 日本出身のフロントエンジニアのAromaです!</samp>
+    <samp>Hi! 日本出身のWEBエンジニアのAromaです!</samp>
     <br />
-    <samp>ここに自分のできることや紹介することを書いていきます!</samp>
+    <samp>主にNext.js, ReactでWEBアプリを専門に開発をしています！</samp>
 <div>
