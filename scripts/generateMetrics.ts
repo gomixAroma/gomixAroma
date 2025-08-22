@@ -13,9 +13,12 @@
  *   GH_TOKEN=ghp_xxx WAKATIME_API_KEY=waka_xxx GH_USERNAME=yourname yarn run generate
  */
 
+import { exec as _exec } from 'child_process';
 import fs from 'fs/promises';
 import fetch from 'node-fetch';
 import path from 'path';
+import { promisify } from 'util';
+const exec = promisify(_exec);
 
 const GH_TOKEN = process.env.GH_TOKEN;
 const WAKATIME_API_KEY = process.env.WAKATIME_API_KEY;
@@ -96,18 +99,57 @@ async function fetchWaka() {
   return (await r.json()) as any;
 }
 
+// そして元の ensureReadmeExists をこれに置き換える
 async function ensureReadmeExists(readmePath: string) {
+  // 1) 作業ツリーに README があるかチェック
   try {
     await fs.access(readmePath);
     console.log('DEBUG: README.md exists:', readmePath);
+    return;
   } catch {
-    console.log('DEBUG: README.md not found. Creating placeholder at', readmePath);
-    const placeholder = `# Hello\n\n<!-- METRICS:START -->\n<p><em>Loading metrics…</em></p>\n<!-- METRICS:END -->\n\n<!--START_SECTION:waka-->\n<p><em>Loading WakaTime…</em></p>\n<!--END_SECTION:waka-->\n`;
-    await fs.writeFile(readmePath, placeholder, 'utf-8');
-    console.log('DEBUG: placeholder README.md created');
+    console.log('DEBUG: README.md not found in working directory:', readmePath);
   }
-}
 
+  // 2) git の HEAD から復元を試みる（checkout されていない場合に有効）
+  const tryGitRestore = async (ref: string) => {
+    try {
+      // git show <ref>:README.md
+      const cmd = `git show ${ref}:README.md`;
+      const { stdout } = await exec(cmd, { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 });
+      if (stdout && stdout.length > 0) {
+        await fs.writeFile(readmePath, stdout, 'utf-8');
+        console.log(`DEBUG: README.md restored from git ${ref}`);
+        return true;
+      }
+    } catch (e: any) {
+      // 無視。ログだけ残す。
+      console.log(`DEBUG: git show ${ref}:README.md failed: ${e?.message?.slice?.(0, 200) ?? e}`);
+    }
+    return false;
+  };
+
+  // 試す順番：HEAD -> origin/<default-branch> -> origin/main
+  if (await tryGitRestore('HEAD')) return;
+  // try origin branch detection from environment (GitHub Actions sets GITHUB_REF or GITHUB_HEAD_REF)
+  const branchFromEnv = (() => {
+    const ref = process.env.GITHUB_REF || process.env.GITHUB_BASE_REF || process.env.GITHUB_HEAD_REF;
+    if (!ref) return null;
+    // ref may be like refs/heads/main
+    const parts = String(ref).split('/');
+    return parts.length ? parts[parts.length - 1] : null;
+  })();
+  if (branchFromEnv) {
+    if (await tryGitRestore(`origin/${branchFromEnv}`)) return;
+  }
+  if (await tryGitRestore('origin/main')) return;
+  if (await tryGitRestore('origin/master')) return;
+
+  // 3) それでも無ければプレースホルダを作る（ただし警告ログを出す）
+  console.warn('WARN: README.md could not be found in working dir nor in git history. Creating placeholder README.md');
+  const placeholder = `# Hello\n\n<!-- METRICS:START -->\n<p><em>Loading metrics…</em></p>\n<!-- METRICS:END -->\n\n<!--START_SECTION:waka-->\n<p><em>Loading WakaTime…</em></p>\n<!--END_SECTION:waka-->\n`;
+  await fs.writeFile(readmePath, placeholder, 'utf-8');
+  console.log('DEBUG: placeholder README.md created at', readmePath);
+}
 async function main() {
   console.log('DEBUG: cwd=', process.cwd());
   const now = new Date();
