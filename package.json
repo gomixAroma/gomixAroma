@@ -1,0 +1,16 @@
+{
+    "name": "profile-metrics",
+    "private": true,
+    "scripts": {
+        "generate": "ts-node scripts/generateMetrics.ts"
+    },
+    "devDependencies": {
+        "@types/node": "^24.3.0",
+        "@types/node-fetch": "2",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.2"
+    },
+    "dependencies": {
+        "node-fetch": "2"
+    }
+}

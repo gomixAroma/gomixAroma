@@ -4,7 +4,7 @@
     <samp>主にNext.js, ReactでWEBアプリを専門に開発をしています!</samp>
 <div>
 
-<h2>📊 Activity & Focus</h2>
+## 📊 Activity & Focus
 
 <!-- METRICS:START -->
 <p><em>Loading metrics…</em></p>
